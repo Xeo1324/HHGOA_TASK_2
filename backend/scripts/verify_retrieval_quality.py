@@ -19,7 +19,7 @@ bm25 = BM25Retriever(chunks)
 hybrid = HybridRetriever(dense, bm25)
 reranker = TransparentReranker()
 generator = ExtractiveGroundedGenerator()
-pipeline = RAGPipeline(hybrid, reranker, generator, minimum_score=0.08)
+pipeline = RAGPipeline(hybrid, reranker, generator, minimum_score=0.01)
 
 eval_queries = json.loads((ROOT / "data" / "msmarco_xi_eval_queries.json").read_text(encoding="utf-8"))
 total = len(eval_queries)
