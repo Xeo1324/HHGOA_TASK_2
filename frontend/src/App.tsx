@@ -57,7 +57,7 @@ export const App: React.FC = () => {
     return {
       language: 'en',
       chunking_strategy: 'sentence',
-      retrieval_mode: 'dense',
+      retrieval_mode: 'hybrid_rerank',
       top_k: 5,
       synthesize_audio: true,
       apiBaseUrl: DEFAULT_API_BASE_URL,
@@ -555,38 +555,7 @@ export const App: React.FC = () => {
   }, [appState, errorMessage]);
 
   return (
-    <div className="min-h-screen bg-[#07241B] text-goa-cream flex flex-row overflow-x-hidden relative selection:bg-goa-pink/30 selection:text-white">
-      {/* ========================================================================= */}
-      {/* DEEP NOVARON ATMOSPHERIC FOREST ENVIRONMENT (LAYERED & GPU-ACCELERATED)  */}
-      {/* ========================================================================= */}
-      <div className="fixed inset-0 pointer-events-none -z-0 overflow-hidden" aria-hidden="true">
-        {/* Layer 1: Base Nocturnal Forest Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#07241B] via-[#051A13] to-[#09281E]" />
-
-        {/* Layer 2: Asynchronous Atmospheric Deep Green Mist Fields (Heavily Blurred, Huge, Soft) */}
-        <div className="absolute top-[-15%] left-[10%] w-[950px] h-[850px] bg-gradient-to-br from-[#0F3D2E]/45 via-[#0B3326]/30 to-transparent rounded-full blur-[140px] animate-atmosphere-x" />
-        <div className="absolute bottom-[-15%] right-[-10%] w-[900px] h-[800px] bg-gradient-to-tl from-[#082A20]/65 via-[#0D382B]/35 to-transparent rounded-full blur-[150px] animate-atmosphere-y" />
-        <div className="absolute top-[20%] right-[15%] w-[800px] h-[750px] bg-gradient-to-bl from-[#0A3024]/40 via-[#061F17]/30 to-transparent rounded-full blur-[140px] animate-atmosphere-breath" />
-
-        {/* Layer 3: Broad Center Ambient Illumination (Soft natural light across the environment) */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-gradient-to-br from-[#F5C518]/[0.024] via-[#0F3D2E]/[0.08] to-transparent rounded-full blur-[120px]" />
-
-        {/* Layer 4: Voice-Reactive Energy Aura (Emerges gently when listening / speaking) */}
-        <div
-          className={`absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#EE2A6D]/[0.035] rounded-full blur-[120px] transition-opacity duration-1000 ${
-            appState === 'LISTENING' || appState === 'PLAYING_AUDIO' ? 'opacity-100' : 'opacity-0'
-          }`}
-        />
-
-        {/* Layer 5: Micro-Noise Organic Depth Texture (eliminates digital banding) */}
-        <div
-          className="absolute inset-0 opacity-[0.02] mix-blend-overlay pointer-events-none"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
-
+    <div className="min-h-screen bg-[#F7F3EA] text-[#111111] flex flex-row overflow-x-hidden relative selection:bg-[#111111] selection:text-[#F7F3EA]">
       {/* 1. Left Sidebar Rail (Desktop) */}
       <Sidebar
         activeTab={activeTab}
@@ -606,9 +575,9 @@ export const App: React.FC = () => {
         />
 
         {/* Center Interaction Stage */}
-        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-6 flex flex-col justify-center items-center relative">
+        <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-8 py-8 flex flex-col justify-center items-center relative">
           
-          {/* Conversational State-Aware Hero Heading */}
+          {/* Editorial Headline */}
           <div
             className={`text-center transition-all duration-300 min-h-[64px] sm:min-h-[72px] flex flex-col justify-center items-center ${
               hasAnswer ? 'mb-2' : 'my-4'
@@ -616,14 +585,14 @@ export const App: React.FC = () => {
           >
             <h2
               key={`heading-${heroContent.main}`}
-              className="text-3xl sm:text-4xl md:text-5xl font-serif font-medium tracking-tight text-goa-cream animate-fade-in"
+              className="text-3xl sm:text-4xl md:text-5xl font-editorial font-normal tracking-tight text-[#111111] animate-fade-in"
             >
               {heroContent.main}
             </h2>
             {heroContent.supporting && !hasAnswer && (
               <p
                 key={`sub-${heroContent.supporting}`}
-                className="text-xs sm:text-sm font-sans text-goa-cream/60 mt-2 animate-fade-in"
+                className="text-xs sm:text-sm font-sans text-[#4A4741] mt-2 animate-fade-in max-w-lg"
               >
                 {heroContent.supporting}
               </p>
@@ -747,22 +716,22 @@ export const App: React.FC = () => {
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsMobileNavOpen(false);
           }}
-          className="fixed inset-0 z-50 flex bg-black/65 backdrop-blur-sm lg:hidden transition-opacity animate-fade-in"
+          className="fixed inset-0 z-50 flex bg-black/40 backdrop-blur-xs lg:hidden transition-opacity animate-fade-in"
         >
-          <div className="w-72 max-w-[80vw] bg-[#0A2E22] border-r border-white/[0.08] p-5 flex flex-col justify-between h-full shadow-2xl">
+          <div className="w-72 max-w-[80vw] bg-[#FBF9F4] border-r border-[#D8D2C7] p-5 flex flex-col justify-between h-full shadow-2xl">
             <div>
-              <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-6">
+              <div className="flex items-center justify-between pb-4 border-b border-[#D8D2C7] mb-6">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#0F3D2E] to-[#0A2E22] border border-white/[0.12] flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-[#F5C518]" />
+                  <div className="w-7 h-7 rounded-md bg-[#111111] flex items-center justify-center text-[#F7F3EA]">
+                    <span className="text-xs font-bold font-mono">N</span>
                   </div>
-                  <span className="text-sm font-bold tracking-[0.14em] text-[#F4EDD8] font-sans">
+                  <span className="text-xs font-semibold tracking-[0.16em] uppercase text-[#111111]">
                     NOVARON
                   </span>
                 </div>
                 <button
                   onClick={() => setIsMobileNavOpen(false)}
-                  className="p-1.5 rounded-full hover:bg-white/[0.08] text-[#F4EDD8]/70 hover:text-[#F4EDD8]"
+                  className="p-1.5 rounded-md hover:bg-[#EEE9DF] text-[#4A4741] hover:text-[#111111]"
                   aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />
@@ -770,20 +739,20 @@ export const App: React.FC = () => {
               </div>
 
               {/* Navigation Rail */}
-              <nav className="space-y-1.5">
+              <nav className="space-y-1">
                 <button
                   onClick={() => {
                     handleTabSelect('ask');
                     setIsMobileNavOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-md text-xs font-medium transition-all ${
                     activeTab === 'ask'
-                      ? 'bg-white/[0.08] text-[#F4EDD8] border border-white/[0.10]'
-                      : 'text-[#F4EDD8]/70 hover:text-[#F4EDD8] hover:bg-white/[0.04]'
+                      ? 'bg-[#111111] text-[#F7F3EA]'
+                      : 'text-[#4A4741] hover:text-[#111111] hover:bg-[#EEE9DF]'
                   }`}
                 >
-                  <Mic className={`w-4 h-4 ${activeTab === 'ask' ? 'text-[#EE2A6D]' : 'text-[#F4EDD8]/60'}`} />
-                  <span>Ask</span>
+                  <Mic className="w-4 h-4" />
+                  <span>Ask / Query</span>
                 </button>
 
                 <button
@@ -791,18 +760,18 @@ export const App: React.FC = () => {
                     handleTabSelect('history');
                     setIsMobileNavOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-md text-xs font-medium transition-all ${
                     activeTab === 'history'
-                      ? 'bg-white/[0.08] text-[#F4EDD8] border border-white/[0.10]'
-                      : 'text-[#F4EDD8]/70 hover:text-[#F4EDD8] hover:bg-white/[0.04]'
+                      ? 'bg-[#111111] text-[#F7F3EA]'
+                      : 'text-[#4A4741] hover:text-[#111111] hover:bg-[#EEE9DF]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <HistoryIcon className={`w-4 h-4 ${activeTab === 'history' ? 'text-[#EE2A6D]' : 'text-[#F4EDD8]/60'}`} />
-                    <span>History</span>
+                    <HistoryIcon className="w-4 h-4" />
+                    <span>Query Log</span>
                   </div>
                   {history.length > 0 && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-white/[0.08] text-[#F4EDD8]">
+                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#D8D2C7] text-[#111111]">
                       {history.length}
                     </span>
                   )}
@@ -813,21 +782,21 @@ export const App: React.FC = () => {
                     handleTabSelect('sources');
                     setIsMobileNavOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-mono font-medium transition-all ${
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-md text-xs font-medium transition-all ${
                     activeTab === 'sources'
-                      ? 'bg-white/[0.08] text-[#F4EDD8] border border-white/[0.10]'
-                      : 'text-[#F4EDD8]/70 hover:text-[#F4EDD8] hover:bg-white/[0.04]'
+                      ? 'bg-[#111111] text-[#F7F3EA]'
+                      : 'text-[#4A4741] hover:text-[#111111] hover:bg-[#EEE9DF]'
                   }`}
                 >
-                  <Database className={`w-4 h-4 ${activeTab === 'sources' ? 'text-[#EE2A6D]' : 'text-[#F4EDD8]/60'}`} />
-                  <span>Sources</span>
+                  <Database className="w-4 h-4" />
+                  <span>Sources & Citations</span>
                 </button>
               </nav>
             </div>
 
-            <div className="pt-4 border-t border-white/[0.05] text-[10px] font-mono text-[#F4EDD8]/30 flex items-center justify-between">
-              <span>HH GOA 2026</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/70" />
+            <div className="pt-4 border-t border-[#D8D2C7] text-[10px] text-[#4A4741] flex items-center justify-between">
+              <span>Task 2 · HH Goa</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-700" />
             </div>
           </div>
         </div>

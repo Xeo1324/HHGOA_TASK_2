@@ -38,7 +38,7 @@ from app.retrieval import (BM25Retriever, CrossEncoderReranker, FAISSDenseRetrie
                            HashingDenseRetriever, HashingEmbedder, HybridRetriever,
                            TransparentReranker)
 from app.router import QueryIntent, classify_query
-from app.stt import FasterWhisperSTT, MockSTT, OpenAIWhisperSTT, SpeechToTextError
+from app.stt import FasterWhisperSTT, MockSTT, OpenAIWhisperSTT, SarvamSTT, SpeechToTextError
 from app.tts import EdgeTTS, MockTTS, TextToSpeechError
 from app.vector_store import FaissVectorStore
 
@@ -181,9 +181,11 @@ def _build_stt() -> SpeechToText:
         return FasterWhisperSTT()
     if provider in ("openai", "groq"):
         return OpenAIWhisperSTT()
+    if provider == "sarvam":
+        return SarvamSTT()
     if provider == "mock":
         return MockSTT()
-    raise ValueError(f"STT_PROVIDER must be 'local', 'openai', 'groq', or 'mock', got '{provider}'.")
+    raise ValueError(f"STT_PROVIDER must be 'local', 'openai', 'groq', 'sarvam', or 'mock', got '{provider}'.")
 
 
 def _build_tts() -> TextToSpeech:
@@ -205,9 +207,14 @@ def build_pipeline(chunks: list, strategy: str = "sentence", mode: str = "dense"
         "hybrid_rerank": HybridRetriever(dense_retriever, bm25_retriever),
     }[mode]
     reranker = _build_reranker() if mode == "hybrid_rerank" else None
-    threshold = float(os.getenv("MIN_RELEVANCE_SCORE", "0.12")) if reranker else float(
-        os.getenv("MIN_UNRERANKED_RELEVANCE_SCORE", "0.70")
-    )
+    if mode in ("hybrid", "hybrid_rerank"):
+        threshold = float(os.getenv("MIN_HYBRID_SCORE", "0.01"))
+    elif mode == "bm25":
+        threshold = float(os.getenv("MIN_BM25_SCORE", "0.5"))
+    else:
+        threshold = float(os.getenv("MIN_RELEVANCE_SCORE", "0.08")) if reranker else float(
+            os.getenv("MIN_UNRERANKED_RELEVANCE_SCORE", "0.08")
+        )
     return RAGPipeline(retriever, reranker, _build_generator(), threshold)
 
 
@@ -385,24 +392,28 @@ app.add_middleware(
 
 @app.get("/health")
 def health() -> dict:
-    """Health-check endpoint — accurately reports ready, starting, or error state."""
-    if _startup_error is not None:
-        return {
-            "status": "error",
-            "service": "novaron-rag-core",
-            "ready": False,
-            "error": _startup_error,
-        }
-    if not _startup_complete or pipelines is None:
-        return {
-            "status": "starting",
-            "service": "novaron-rag-core",
-            "ready": False,
-        }
+    """Process liveness probe."""
     return {
         "status": "ok",
         "service": "novaron-rag-core",
+        "uptime": True,
+        "ready": True if _startup_complete and pipelines is not None else False,
+    }
+
+
+@app.get("/ready")
+def ready() -> dict:
+    """Resource readiness probe — verifies indexed corpus, pipelines, and provider adapters."""
+    if _startup_error is not None:
+        raise HTTPException(status_code=500, detail=f"Startup failed: {_startup_error}")
+    if not _startup_complete or pipelines is None:
+        raise HTTPException(status_code=503, detail="Service starting up")
+    return {
+        "status": "ready",
+        "service": "novaron-rag-core",
         "ready": True,
+        "corpus_loaded": True,
+        "active_strategies": list(pipelines.keys()) if pipelines else [],
     }
 
 
@@ -453,7 +464,7 @@ def query(request: QueryRequest) -> QueryResponse:
         )
 
     # 4. Handle Knowledge Queries through Grounded RAG Pipeline
-    result = pipelines[request.chunking_strategy][request.retrieval_mode].run(normalized.normalized_query, answer_limit=request.top_k)
+    result = pipelines[request.chunking_strategy][request.retrieval_mode].run(normalized.normalized_query, answer_limit=request.top_k, language=route.language)
     labels = {
         "dense": "dense",
         "bm25": "bm25",
@@ -564,7 +575,7 @@ async def voice_query(
         pipeline_instance = pipelines[chunking_strategy][retrieval_mode]
         result = await loop.run_in_executor(
             None,
-            lambda: pipeline_instance.run(normalized.normalized_query, answer_limit=top_k),
+            lambda: pipeline_instance.run(normalized.normalized_query, answer_limit=top_k, language=route.language),
         )
         answer = result.answer
         refused = result.refused

@@ -3,9 +3,15 @@ __pycache__/
 *.pyo
 *.pyd
 .env
+.env.*
+!.env.example
 .venv/
 venv/
 .pytest_cache/
 .pytest_temp/
 data/indexes/
 benchmarks/results/
+node_modules/
+frontend/dist/
+*.log
+

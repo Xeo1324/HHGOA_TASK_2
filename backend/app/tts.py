@@ -31,7 +31,31 @@ class TextToSpeechError(RuntimeError):
 
 
 class EdgeTTS(TextToSpeech):
-    """Microsoft Edge Neural Text-to-Speech adapter with robust multi-provider fallback supporting English and Hindi."""
+    """Microsoft Edge Neural Text-to-Speech adapter with multilingual Indic voice support.
+
+    Supports all 15 MSMARCO-XI languages (14 Indic + English) with automatic voice selection.
+    Languages without a dedicated Edge Neural voice fall back to a related language voice.
+    """
+
+    # Comprehensive voice mapping for all 15 supported languages.
+    # Languages without dedicated Edge TTS voices use the closest available voice.
+    _VOICE_MAP: dict[str, str] = {
+        "en": "en-US-JennyNeural",
+        "hi": "hi-IN-SwaraNeural",
+        "as": "bn-IN-TanishaaNeural",   # Assamese → Bengali voice (closest script)
+        "bn": "bn-IN-TanishaaNeural",   # Bengali
+        "gu": "gu-IN-DhwaniNeural",     # Gujarati
+        "kn": "kn-IN-SapnaNeural",      # Kannada
+        "ml": "ml-IN-SobhanaNeural",    # Malayalam
+        "mr": "mr-IN-AarohiNeural",     # Marathi
+        "ne": "hi-IN-SwaraNeural",      # Nepali → Hindi voice (Devanagari)
+        "or": "hi-IN-SwaraNeural",      # Odia → Hindi voice (no Edge TTS Odia)
+        "pa": "hi-IN-SwaraNeural",      # Punjabi → Hindi voice (limited Edge support)
+        "sa": "hi-IN-SwaraNeural",      # Sanskrit → Hindi voice (Devanagari)
+        "ta": "ta-IN-PallaviNeural",    # Tamil
+        "te": "te-IN-ShrutiNeural",     # Telugu
+        "ur": "ur-PK-UzmaNeural",       # Urdu
+    }
 
     def __init__(
         self,
@@ -40,13 +64,28 @@ class EdgeTTS(TextToSpeech):
     ) -> None:
         self.voice_en = voice_en or os.getenv("TTS_VOICE_EN", "en-US-JennyNeural")
         self.voice_hi = voice_hi or os.getenv("TTS_VOICE_HI", "hi-IN-SwaraNeural")
+        # Override defaults with env-configured voices
+        self._VOICE_MAP["en"] = self.voice_en
+        self._VOICE_MAP["hi"] = self.voice_hi
 
     def _select_voice(self, language: str | None) -> str:
-        if language is None or language.lower() in ("en", "eng", "english"):
+        if language is None:
             return self.voice_en
-        if language.lower() in ("hi", "hin", "hindi"):
-            return self.voice_hi
-        raise TextToSpeechError(f"Unsupported language '{language}' for speech synthesis. Supported languages: 'en', 'hi'.")
+        lang = language.lower().strip()
+        # Handle full language names
+        lang_name_map = {
+            "eng": "en", "english": "en", "hin": "hi", "hindi": "hi",
+            "assamese": "as", "bengali": "bn", "gujarati": "gu",
+            "kannada": "kn", "malayalam": "ml", "marathi": "mr",
+            "nepali": "ne", "odia": "or", "punjabi": "pa",
+            "sanskrit": "sa", "tamil": "ta", "telugu": "te", "urdu": "ur",
+        }
+        lang = lang_name_map.get(lang, lang)
+        voice = self._VOICE_MAP.get(lang)
+        if voice:
+            return voice
+        # Graceful fallback to English for truly unknown languages
+        return self.voice_en
 
     @staticmethod
     def _clean_text(text: str) -> str:
@@ -124,6 +163,13 @@ class EdgeTTS(TextToSpeech):
 class MockTTS(TextToSpeech):
     """Deterministic mock TTS adapter for testing and offline environments."""
 
+    _SUPPORTED_LANGS = {
+        "en", "hi", "as", "bn", "gu", "kn", "ml", "mr", "ne", "or", "pa", "sa", "ta", "te", "ur",
+        "eng", "hin", "english", "hindi", "assamese", "bengali", "gujarati",
+        "kannada", "malayalam", "marathi", "nepali", "odia", "punjabi",
+        "sanskrit", "tamil", "telugu", "urdu",
+    }
+
     def __init__(self, mock_bytes: bytes | None = None) -> None:
         self.mock_bytes = mock_bytes or (b"ID3\x04\x00\x00\x00\x00\x00\x00\xff\xfb\x90\x04" + b"MOCK_MP3_AUDIO_DATA_FOR_TESTS")
         self.recorded_calls: list[dict[str, Any]] = []
@@ -136,8 +182,8 @@ class MockTTS(TextToSpeech):
         if not text or not text.strip():
             raise TextToSpeechError("Cannot synthesize empty text.")
 
-        if language and language.lower() not in ("en", "hi", "eng", "hin", "english", "hindi"):
-            raise TextToSpeechError(f"Unsupported language '{language}' for speech synthesis. Supported languages: 'en', 'hi'.")
+        if language and language.lower() not in self._SUPPORTED_LANGS:
+            raise TextToSpeechError(f"Unsupported language '{language}' for speech synthesis.")
 
         self.recorded_calls.append({"text": text, "language": language})
         return self.mock_bytes

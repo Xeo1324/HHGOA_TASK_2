@@ -45,7 +45,7 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({
         return (
           <span
             key={index}
-            className="inline-flex items-center justify-center font-mono text-[10px] font-bold text-[#F5C518] bg-[#F5C518]/15 border border-[#F5C518]/25 rounded px-1.5 py-0.5 mx-0.5 align-baseline"
+            className="inline-flex items-center justify-center font-mono text-[11px] font-semibold text-[#111111] bg-[#EEE9DF] border border-[#D8D2C7] rounded px-1.5 py-0.2 mx-0.5 align-baseline"
           >
             {match[1]}
           </span>
@@ -66,8 +66,8 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({
             const numberedMatch = line.match(/^(\d+)\.\s+(.*)/);
             if (numberedMatch) {
               return (
-                <li key={lIdx} className="flex items-start gap-2.5 ml-1">
-                  <span className="font-mono text-xs font-bold text-[#F5C518] mt-0.5 shrink-0">
+                <li key={lIdx} className="flex items-start gap-2 ml-1">
+                  <span className="font-mono text-xs font-semibold text-[#4A4741] mt-0.5 shrink-0">
                     {numberedMatch[1]}.
                   </span>
                   <span className="leading-relaxed">{renderInlineCitations(numberedMatch[2])}</span>
@@ -78,8 +78,8 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({
             const bulletMatch = line.match(/^[-*•]\s+(.*)/);
             if (bulletMatch) {
               return (
-                <li key={lIdx} className="flex items-start gap-2.5 ml-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#F5C518]/80 mt-2 shrink-0" />
+                <li key={lIdx} className="flex items-start gap-2 ml-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#111111] mt-2 shrink-0" />
                   <span className="leading-relaxed">{renderInlineCitations(bulletMatch[1])}</span>
                 </li>
               );
@@ -96,224 +96,208 @@ export const AnswerCard: React.FC<AnswerCardProps> = ({
     }
 
     return (
-      <p key={pIdx} className="leading-relaxed">
+      <p key={pIdx} className="leading-relaxed text-[#111111] font-editorial text-[17px]">
         {renderInlineCitations(block)}
       </p>
     );
   };
 
   return (
-    <article className="w-full max-w-2xl mx-auto my-2 animate-fade-in">
-      <div className="bg-[#0A2E22]/90 border border-white/[0.08] rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden transition-all duration-300">
-        
-        {/* Ambient Subtle Accent Glow */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-bl from-[#F5C518]/5 via-transparent to-transparent rounded-full blur-3xl pointer-events-none" />
+    <article className="w-full max-w-3xl bg-[#FBF9F4] rounded-lg border border-[#D8D2C7] shadow-xs overflow-hidden transition-all animate-fade-in my-6">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between px-6 py-3.5 border-b border-[#D8D2C7] bg-[#F7F3EA]/70">
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold tracking-wider uppercase bg-[#EEE9DF] text-[#111111] border border-[#D8D2C7]">
+            <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+            Grounded Answer
+          </span>
+          <span className="text-xs text-[#4A4741] hidden sm:inline-block">
+            {sources.length} cited source{sources.length === 1 ? '' : 's'}
+          </span>
+        </div>
 
-        {/* User Query Header (if from Voice/Text) */}
-        {queryText && (
-          <div className="mb-4 pb-3 border-b border-white/[0.06]">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <p className="text-xs font-mono tracking-wider text-[#F4EDD8]/50 uppercase">
-                Heard Transcript
-              </p>
-              {normalizedQuery && normalizedQuery.toLowerCase() !== queryText.toLowerCase() && (
-                <span className="text-[11px] font-mono text-[#F5C518]/90 bg-[#F5C518]/10 px-2.5 py-0.5 rounded-full border border-[#F5C518]/20">
-                  Normalized: "{normalizedQuery}"
-                </span>
-              )}
-            </div>
-            <p className="text-base sm:text-lg font-medium text-[#F4EDD8] font-sans">
-              "{queryText}"
-            </p>
+        {/* Action Controls */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={onToggleAudio}
+            className={`px-2.5 py-1 rounded text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+              isPlaying
+                ? 'bg-[#111111] text-[#F7F3EA] border-[#111111]'
+                : 'bg-[#FBF9F4] text-[#111111] border-[#D8D2C7] hover:bg-[#EEE9DF]'
+            }`}
+            title={isPlaying ? 'Pause audio reading' : 'Read answer aloud'}
+          >
+            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+            <span>{isPlaying ? 'Pause' : 'Listen'}</span>
+          </button>
+
+          <button
+            onClick={handleCopy}
+            className="p-1.5 rounded text-[#4A4741] hover:text-[#111111] hover:bg-[#EEE9DF] border border-[#D8D2C7] transition-colors"
+            title="Copy answer text"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-700" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+
+          {onShare && (
+            <button
+              onClick={onShare}
+              className="p-1.5 rounded text-[#4A4741] hover:text-[#111111] hover:bg-[#EEE9DF] border border-[#D8D2C7] transition-colors"
+              title="Share citation"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="p-6 sm:p-8 space-y-6">
+        {/* Question Block */}
+        <div>
+          <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-[#4A4741] mb-1.5">
+            Question
           </div>
-        )}
+          <h2 className="font-editorial text-2xl sm:text-3xl text-[#111111] font-normal leading-snug">
+            {queryText || normalizedQuery}
+          </h2>
+          {normalizedQuery && queryText && normalizedQuery !== queryText && (
+            <p className="text-xs text-[#4A4741] font-mono mt-1">
+              Normalized: {normalizedQuery}
+            </p>
+          )}
+        </div>
 
-        {/* Status Bar: Grounding & Sources Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-2.5 mb-5 pb-3 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 shadow-sm">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Grounded Knowledge</span>
-            </span>
+        {/* Answer Block */}
+        <div>
+          <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-[#4A4741] mb-2">
+            Synthesized Answer
+          </div>
+          <div className="space-y-3 font-editorial text-lg text-[#111111] leading-relaxed">
+            {data.answer.split('\n\n').map((para, idx) => renderParagraph(para, idx))}
+          </div>
+        </div>
 
-            {sources.length > 0 && (
+        {/* Sources Section */}
+        {sources.length > 0 && (
+          <div className="pt-4 border-t border-[#D8D2C7]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-[#4A4741] flex items-center gap-1.5">
+                <Database className="w-3.5 h-3.5 text-[#111111]" />
+                Sources & Provenance ({sources.length})
+              </div>
               <button
                 onClick={() => setSourcesExpanded(!sourcesExpanded)}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-mono font-medium bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-[#F4EDD8]/80 hover:text-[#F4EDD8] transition-all"
+                className="text-xs text-[#4A4741] hover:text-[#111111] flex items-center gap-1 font-medium"
               >
-                <Database className="w-3.5 h-3.5 text-[#F5C518]" />
-                <span>{sources.length} {sources.length === 1 ? 'Source' : 'Sources'}</span>
-                {sourcesExpanded ? <ChevronUp className="w-3 h-3 text-[#F4EDD8]/60" /> : <ChevronDown className="w-3 h-3 text-[#F4EDD8]/60" />}
+                {sourcesExpanded ? 'Collapse' : 'Expand All'}
+                {sourcesExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
-            )}
-          </div>
+            </div>
 
-          {/* Latency Tag */}
-          <button
-            onClick={() => setLatencyExpanded(!latencyExpanded)}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono text-[#F5C518]/90 hover:text-[#F5C518] bg-[#F5C518]/10 hover:bg-[#F5C518]/20 border border-[#F5C518]/25 transition-colors"
-            title="Toggle latency breakdown"
-          >
-            <Zap className="w-3 h-3 text-[#F5C518]" />
-            <span>{totalLatencyFormatted}</span>
-          </button>
-        </div>
-
-        {/* Primary Answer Prose with Clear Paragraphs, Lists & Citation Badges */}
-        <div className="text-[#F4EDD8] text-base sm:text-lg leading-relaxed font-normal mb-6 font-sans space-y-3.5 selection:bg-[#EE2A6D]/30 selection:text-white">
-          {data.answer.split('\n\n').map((paragraph, idx) => renderParagraph(paragraph, idx))}
-        </div>
-
-        {/* Interactive Follow-up / Suggested Questions */}
-        {suggestedQuestions.length > 0 && (
-          <div className="mb-5 pt-3 border-t border-white/[0.06] animate-fade-in">
-            <p className="text-[11px] font-mono uppercase tracking-wider text-[#F4EDD8]/50 mb-2.5">
-              Related Follow-up Questions
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {suggestedQuestions.map((q, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onSelectSuggestion?.(q)}
-                  className="text-left text-xs font-sans text-[#F4EDD8]/85 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] hover:border-[#F5C518]/40 px-3.5 py-2 rounded-2xl transition-all duration-200 active:scale-95 shadow-sm"
+            <div className="space-y-2">
+              {(sourcesExpanded ? sources : sources.slice(0, 2)).map((source, index) => (
+                <div
+                  key={source.chunk_id || index}
+                  className="p-3.5 rounded-md bg-[#F7F3EA] border border-[#D8D2C7] hover:border-[#111111] transition-colors"
                 >
-                  <span className="text-[#F5C518] mr-1.5 font-mono">→</span>
-                  <span>{q}</span>
-                </button>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-[#111111] bg-[#EEE9DF] px-1.5 py-0.5 rounded border border-[#D8D2C7]">
+                        [{index + 1}]
+                      </span>
+                      <span className="text-xs font-semibold text-[#111111] truncate max-w-[240px] sm:max-w-md">
+                        {source.title || source.document_id}
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-mono text-[#4A4741] shrink-0">
+                      Score: {source.relevance_score ? source.relevance_score.toFixed(3) : '0.000'}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-[#4A4741] font-editorial line-clamp-2 leading-relaxed mt-1">
+                    "{source.text}"
+                  </p>
+
+                  <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-[#D8D2C7]/60 text-[10px] font-mono text-[#4A4741]">
+                    <span>ID: {source.chunk_id || source.passage_id || source.document_id}</span>
+                    <span>•</span>
+                    <span className="uppercase">{source.language || 'en'}</span>
+                    <span>•</span>
+                    <span>MSMARCO-XI</span>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Minimal Audio & Action Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] mb-2">
-          {/* Voice Response Trigger */}
+        {/* Latency & Telemetry Details */}
+        <div className="pt-3 border-t border-[#D8D2C7] flex flex-wrap items-center justify-between text-xs text-[#4A4741]">
           <button
-            onClick={onToggleAudio}
-            className={`flex items-center gap-2.5 px-4 py-2 rounded-full font-mono text-xs font-semibold transition-all duration-200 active:scale-95 shadow-sm ${
-              isPlaying
-                ? 'bg-[#EE2A6D] text-white shadow-md shadow-[#EE2A6D]/30'
-                : 'bg-[#F4EDD8] text-[#0A2E22] hover:bg-white'
-            }`}
-            title={isPlaying ? 'Pause Voice Response' : 'Play Voice Response'}
+            onClick={() => setLatencyExpanded(!latencyExpanded)}
+            className="flex items-center gap-1.5 hover:text-[#111111] transition-colors font-mono text-[11px]"
           >
-            {isPlaying ? (
-              <>
-                <Pause className="w-3.5 h-3.5 fill-current" />
-                <span>Speaking...</span>
-                <span className="flex items-center gap-0.5 ml-1">
-                  <span className="w-0.5 h-2.5 bg-white animate-pulse" />
-                  <span className="w-0.5 h-3.5 bg-white animate-bounce" />
-                  <span className="w-0.5 h-2 bg-white animate-pulse" />
-                </span>
-              </>
-            ) : (
-              <>
-                <Volume2 className="w-3.5 h-3.5 fill-current" />
-                <span>Listen to answer</span>
-              </>
-            )}
+            <Zap className="w-3.5 h-3.5 text-emerald-800" />
+            <span>Total Latency: {totalLatencyFormatted}</span>
+            {latencyExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           </button>
 
-          {/* Secondary Actions (Copy & Share) */}
-          <div className="flex items-center gap-2 text-xs font-mono text-[#F4EDD8]/70">
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/[0.06] hover:text-[#F4EDD8] transition-colors"
-              title="Copy answer text"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copied ? 'Copied' : 'Copy'}</span>
-            </button>
-
-            {onShare && (
-              <button
-                onClick={onShare}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/[0.06] hover:text-[#EE2A6D] transition-colors"
-                title="Share answer"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Share</span>
-              </button>
-            )}
-          </div>
+          <span className="text-[11px] font-mono">
+            Mode: {data.retrieval_strategy || 'Hybrid RAG'}
+          </span>
         </div>
 
-        {/* Expandable Grounding Sources Section */}
-        {sources.length > 0 && sourcesExpanded && (
-          <div className="mt-4 pt-4 border-t border-white/[0.06] space-y-2.5 max-h-64 overflow-y-auto pr-1 animate-fade-in">
-            <div className="text-[11px] font-mono uppercase tracking-wider text-[#F4EDD8]/50 mb-2">
-              Verified Knowledge Sources
-            </div>
-            {sources.map((src, i) => (
-              <div
-                key={src.chunk_id || i}
-                className="p-3.5 rounded-2xl bg-white/[0.025] border border-white/[0.06] text-xs font-mono hover:border-white/[0.12] transition-colors"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-[#F4EDD8] truncate max-w-[240px] sm:max-w-md">
-                    {String(i + 1).padStart(2, '0')}. {src.title || src.document_id || 'Knowledge Base Entry'}
-                  </span>
-                  <span className="text-[#F5C518] text-[11px] font-medium px-2 py-0.5 rounded-md bg-[#F5C518]/10 border border-[#F5C518]/20">
-                    Relevance: {(src.relevance_score).toFixed(2)}
-                  </span>
-                </div>
-                <p className="text-[#F4EDD8]/75 font-sans text-xs line-clamp-2 leading-relaxed italic">
-                  "{src.text}"
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Expandable Detailed Latency Breakdown */}
         {latencyExpanded && (
-          <div className="mt-4 pt-4 border-t border-white/[0.06] bg-white/[0.015] -mx-6 sm:-mx-8 -mb-6 sm:-mb-8 p-6 rounded-b-3xl animate-fade-in font-mono text-xs">
-            <div className="flex items-center justify-between mb-2.5 text-[#F4EDD8]/60 text-[10px] uppercase tracking-wider">
-              <span>Pipeline Stage Breakdown</span>
-              <span className="text-[#F5C518] font-bold">Total: {totalLatencyFormatted}</span>
+          <div className="p-3 bg-[#EEE9DF] rounded-md border border-[#D8D2C7] text-xs font-mono space-y-1">
+            <div className="flex justify-between">
+              <span>Query Normalization:</span>
+              <span>{latency.norm ? `${Math.round(latency.norm)}ms` : '0ms'}</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-              {latency.stt !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">STT Whisper</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{Math.round(latency.stt)}ms</div>
-                </div>
-              )}
-              {latency.norm !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">Normalizer</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{latency.norm < 1 ? '<1ms' : `${Math.round(latency.norm)}ms`}</div>
-                </div>
-              )}
-              {latency.retrieval !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">Hybrid RAG</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{Math.round(latency.retrieval)}ms</div>
-                </div>
-              )}
-              {latency.reranking !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">Reranking</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{Math.round(latency.reranking)}ms</div>
-                </div>
-              )}
-              {latency.generation !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">LLM Answer</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{Math.round(latency.generation)}ms</div>
-                </div>
-              )}
-              {latency.tts !== undefined && (
-                <div className="p-2 rounded-xl bg-[#0F3D2E]/50 border border-white/[0.06]">
-                  <div className="text-[#F4EDD8]/50 text-[9px] uppercase">EdgeTTS</div>
-                  <div className="text-[#F4EDD8] font-bold mt-0.5">{Math.round(latency.tts)}ms</div>
-                </div>
-              )}
+            <div className="flex justify-between">
+              <span>Local Retrieval (Dense + BM25 + RRF):</span>
+              <span>{latency.retrieval ? `${Math.round(latency.retrieval)}ms` : `${Math.round(latency.rag_total || 0)}ms`}</span>
             </div>
+            {latency.rerank !== undefined && (
+              <div className="flex justify-between">
+                <span>Reranking:</span>
+                <span>{Math.round(latency.rerank)}ms</span>
+              </div>
+            )}
+            {latency.generation !== undefined && (
+              <div className="flex justify-between">
+                <span>Grounded LLM Generation:</span>
+                <span>{Math.round(latency.generation)}ms</span>
+              </div>
+            )}
+            {latency.tts !== undefined && (
+              <div className="flex justify-between">
+                <span>Speech Synthesis (TTS):</span>
+                <span>{Math.round(latency.tts)}ms</span>
+              </div>
+            )}
           </div>
         )}
 
+        {/* Suggested Questions */}
+        {suggestedQuestions.length > 0 && onSelectSuggestion && (
+          <div className="pt-2">
+            <div className="text-[11px] font-semibold tracking-[0.16em] uppercase text-[#4A4741] mb-2">
+              Related Inquiries
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {suggestedQuestions.map((q, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onSelectSuggestion(q)}
+                  className="px-3 py-1.5 rounded-md bg-[#F7F3EA] hover:bg-[#EEE9DF] border border-[#D8D2C7] text-xs text-[#111111] transition-colors text-left"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </article>
   );

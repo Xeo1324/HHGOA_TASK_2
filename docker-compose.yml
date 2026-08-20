@@ -1,0 +1,24 @@
+version: "3.8"
+
+services:
+  novaron-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DENSE_RETRIEVER=faiss
+      - STT_PROVIDER=sarvam
+      - TTS_PROVIDER=edge
+      - LLM_PROVIDER=gemini
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s

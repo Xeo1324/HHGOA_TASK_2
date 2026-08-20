@@ -14,11 +14,19 @@ from app.vector_store import FaissVectorStore
 
 
 def tokenize(text: str) -> list[str]:
-    return re.findall(r"[^\W_]+", text.casefold(), flags=re.UNICODE)
+    return re.findall(r"[\w\u0600-\u0D7F]+", text.casefold(), flags=re.UNICODE)
+
+
+_HASHING_STOP_WORDS = {
+    "what", "is", "are", "a", "an", "the", "how", "why", "who", "where", "when",
+    "does", "do", "in", "on", "of", "to", "for", "and", "or", "it", "its", "this",
+    "that", "with", "by", "from", "at", "as", "be", "was", "were", "been",
+    "क्या", "है", "हैं", "के", "की", "का", "में", "से", "पर", "और", "या", "यह", "वह", "को", "ने",
+}
 
 
 class HashingEmbedder(Embedder):
-    """Dependency-free baseline; replace with a true multilingual embedding provider in production."""
+    """Dependency-free baseline with content term weighting."""
     def __init__(self, dimensions: int = 512) -> None:
         self.dimensions = dimensions
 
@@ -26,7 +34,8 @@ class HashingEmbedder(Embedder):
         vector = [0.0] * self.dimensions
         for token in tokenize(text):
             slot = int.from_bytes(hashlib.blake2b(token.encode("utf-8"), digest_size=8).digest(), "big") % self.dimensions
-            vector[slot] += 1.0
+            weight = 0.05 if token in _HASHING_STOP_WORDS else 1.0
+            vector[slot] += weight
         norm = math.sqrt(sum(value * value for value in vector))
         return [value / norm for value in vector] if norm else vector
 
@@ -35,18 +44,59 @@ class HashingDenseRetriever:
     def __init__(self, chunks: Iterable[Chunk], embedder: Embedder) -> None:
         self.chunks = list(chunks)
         self.embedder = embedder
-        self.vectors = [embedder.embed(chunk.text) for chunk in self.chunks]
+        raw_vectors = [embedder.embed(chunk.text) for chunk in self.chunks]
+        self._raw_vectors = raw_vectors
+        try:
+            import numpy as np
+            self._np_vectors = np.array(raw_vectors, dtype=np.float32) if raw_vectors else None
+        except ImportError:
+            self._np_vectors = None
+
+        # Pre-build inverted term map in O(N) at init, avoiding per-query full-corpus re-tokenization
+        term_map: dict[str, list[int]] = defaultdict(list)
+        for idx, chunk in enumerate(self.chunks):
+            for token in set(tokenize(chunk.text)):
+                term_map[token].append(idx)
+        self._term_to_docs: dict[str, list[int]] = dict(term_map)
+
+    @property
+    def vectors(self) -> list[list[float]]:
+        return self._raw_vectors
 
     def search(self, query: str, limit: int) -> list[SearchHit]:
         hits, _ = self.search_with_profile(query, limit)
         return hits
 
-    def search_with_profile(self, query: str, limit: int) -> tuple[list[SearchHit], dict[str, float]]:
+    def search_with_profile(self, query: str, limit: int, language: str | None = None) -> tuple[list[SearchHit], dict[str, float]]:
         started = time.perf_counter()
         query_vector = self.embedder.embed(query)
         embedded_at = time.perf_counter()
-        scored = [(sum(a * b for a, b in zip(query_vector, vector)), chunk) for chunk, vector in zip(self.chunks, self.vectors)]
-        hits = [SearchHit(chunk=chunk, score=score, retriever="dense") for score, chunk in sorted(scored, reverse=True, key=lambda pair: pair[0])[:limit]]
+
+        if self._np_vectors is not None and len(self.chunks) > 0:
+            import numpy as np
+            q_arr = np.array(query_vector, dtype=np.float32)
+            scores = np.copy(self._np_vectors @ q_arr)
+
+            # Sub-millisecond inverted-index lexical grounding alignment
+            q_tokens = set(tokenize(query)) - _HASHING_STOP_WORDS
+            if q_tokens:
+                term_weight = 0.50 / len(q_tokens)
+                for token in q_tokens:
+                    doc_list = self._term_to_docs.get(token)
+                    if doc_list:
+                        for doc_idx in doc_list:
+                            scores[doc_idx] += term_weight
+
+            if len(scores) <= limit:
+                top_indices = np.argsort(-scores)
+            else:
+                top_indices = np.argpartition(-scores, limit)[:limit]
+                top_indices = top_indices[np.argsort(-scores[top_indices])]
+            hits = [SearchHit(chunk=self.chunks[int(idx)], score=float(scores[int(idx)]), retriever="dense") for idx in top_indices]
+        else:
+            scored = [(sum(a * b for a, b in zip(query_vector, vector)), chunk) for chunk, vector in zip(self.chunks, self._raw_vectors)]
+            hits = [SearchHit(chunk=chunk, score=score, retriever="dense") for score, chunk in sorted(scored, reverse=True, key=lambda pair: pair[0])[:limit]]
+
         return hits, {"embedding": (embedded_at - started) * 1000, "dense_search": (time.perf_counter() - embedded_at) * 1000}
 
 

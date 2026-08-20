@@ -48,6 +48,8 @@ class _FakeClient:
 @pytest.fixture(scope="module")
 def sentence_faiss_retriever():
     index_dir = ROOT / "data" / "indexes" / "sentence"
+    if not index_dir.exists():
+        pytest.skip(f"Disk index not found at {index_dir}")
     embedder = SentenceTransformerEmbeddingProvider()
     store = FaissVectorStore.load(
         index_dir,

@@ -52,7 +52,7 @@ class Reranker(Protocol):
 
 
 class GroundedGenerator(Protocol):
-    def answer(self, query: str, evidence: Sequence[SearchHit]) -> str | "GeneratedAnswer": ...
+    def answer(self, query: str, evidence: Sequence[SearchHit], language: str | None = None) -> str | "GeneratedAnswer": ...
 
 
 class SpeechToText(Protocol):

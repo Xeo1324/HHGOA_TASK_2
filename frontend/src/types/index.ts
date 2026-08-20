@@ -12,11 +12,13 @@ export interface LatencyBreakdown {
   stt?: number;
   norm?: number;
   retrieval?: number;
+  rerank?: number;
   reranking?: number;
   generation?: number;
   tts?: number;
   rag_total?: number;
   total?: number;
+  [key: string]: number | undefined;
 }
 
 export interface QueryResponse {
@@ -59,7 +61,7 @@ export type AppState =
   | 'PLAYING_AUDIO';
 
 export interface Settings {
-  language: 'en' | 'hi' | 'auto';
+  language: string;
   chunking_strategy: 'fixed' | 'sentence' | 'hierarchical';
   retrieval_mode: 'dense' | 'bm25' | 'hybrid' | 'hybrid_rerank';
   top_k: number;

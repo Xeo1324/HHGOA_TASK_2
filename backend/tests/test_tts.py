@@ -52,7 +52,7 @@ def test_tts_rejects_empty_text():
 def test_tts_rejects_unsupported_language():
     mock = MockTTS()
     with pytest.raises(TextToSpeechError, match="Unsupported language"):
-        asyncio.run(mock.synthesize("Hello", language="kannada"))
+        asyncio.run(mock.synthesize("Hello", language="klingon"))
 
 
 # 7. Provider error handling

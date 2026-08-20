@@ -167,6 +167,93 @@ class OpenAIWhisperSTT(SpeechToText):
             raise SpeechToTextError(f"STT transcription request failed: {exc}") from exc
 
 
+class SarvamSTT(SpeechToText):
+    """Sarvam AI Saaras v3 Speech-to-Text adapter for multilingual Indic transcription.
+
+    Required by HH Goa Task 2: voice-enabled RAG with Sarvam / ElevenLabs STT.
+    Supports all 14 Indic languages + English with auto language detection.
+    """
+
+    # Sarvam language code mapping (ISO 639-1 → Sarvam language_code)
+    _LANG_MAP: dict[str, str] = {
+        "as": "as-IN", "bn": "bn-IN", "gu": "gu-IN", "hi": "hi-IN",
+        "kn": "kn-IN", "ml": "ml-IN", "mr": "mr-IN", "ne": "ne-NP",
+        "or": "or-IN", "pa": "pa-IN", "sa": "sa-IN", "ta": "ta-IN",
+        "te": "te-IN", "ur": "ur-IN", "en": "en-IN",
+    }
+
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str = "saaras:v3",
+        client: Any | None = None,
+    ) -> None:
+        self.api_key = api_key or os.getenv("SARVAM_API_KEY")
+        self.model = model
+        self._client = client
+
+    def _client_instance(self):
+        if self._client is not None:
+            return self._client
+        if not self.api_key:
+            raise SpeechToTextError(
+                "SARVAM_API_KEY is required when STT_PROVIDER=sarvam. "
+                "Set it in your .env file."
+            )
+        try:
+            from sarvamai import SarvamAI
+        except ImportError as exc:
+            raise SpeechToTextError(
+                "sarvamai package is required for Sarvam STT. "
+                "Install it with: pip install sarvamai"
+            ) from exc
+        self._client = SarvamAI(api_subscription_key=self.api_key)
+        return self._client
+
+    def _transcribe_sync(self, audio: bytes, language: str | None, filename: str) -> str:
+        client = self._client_instance()
+        audio_stream = io.BytesIO(audio)
+        audio_stream.name = filename  # sarvamai SDK may use the name attribute
+
+        # Map language code or use "unknown" for auto-detection
+        lang_code = "unknown"
+        if language and language != "auto":
+            lang_code = self._LANG_MAP.get(language, language)
+
+        response = client.speech_to_text.transcribe(
+            file=audio_stream,
+            model=self.model,
+            language_code=lang_code,
+            mode="transcribe",
+        )
+
+        transcript = getattr(response, "transcript", None)
+        if not transcript or not str(transcript).strip():
+            raise SpeechToTextError("Sarvam STT returned an empty transcript.")
+        return str(transcript).strip()
+
+    async def transcribe(
+        self,
+        audio: bytes,
+        language: str | None = None,
+        filename: str = "audio.wav",
+    ) -> str:
+        if not audio or len(audio) == 0:
+            raise SpeechToTextError("Audio payload cannot be empty.")
+
+        try:
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                None, self._transcribe_sync, audio, language, filename
+            )
+        except SpeechToTextError:
+            raise
+        except Exception as exc:
+            raise SpeechToTextError(
+                f"Sarvam STT transcription failed: {exc}"
+            ) from exc
+
+
 class MockSTT(SpeechToText):
     """Deterministic mock STT adapter for testing and offline environments."""
 

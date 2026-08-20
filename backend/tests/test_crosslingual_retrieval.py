@@ -23,6 +23,8 @@ EVAL_PATH = ROOT / "data" / "msmarco_xi_eval_queries.json"
 
 @pytest.fixture(scope="module")
 def setup_retriever():
+    if not INDEX_PATH.exists():
+        pytest.skip(f"Disk index not found at {INDEX_PATH}")
     embedder = SentenceTransformerEmbeddingProvider()
     store = FaissVectorStore.load(INDEX_PATH)
     retriever = FAISSDenseRetriever(store, embedder)

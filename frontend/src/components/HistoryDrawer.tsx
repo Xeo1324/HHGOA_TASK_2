@@ -61,103 +61,103 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
           onClose();
         }
       }}
-      className="fixed inset-0 z-40 flex justify-end bg-black/60 backdrop-blur-sm lg:left-60 transition-opacity animate-fade-in"
+      className="fixed inset-0 z-40 flex justify-end bg-black/40 backdrop-blur-xs lg:left-64 transition-opacity animate-fade-in"
     >
-      <div className="w-full max-w-md bg-[#0A2E22]/95 text-[#F4EDD8] h-full p-6 sm:p-8 overflow-y-auto border-l border-white/[0.08] shadow-2xl flex flex-col justify-between backdrop-blur-xl">
+      <div className="w-full max-w-md bg-[#FBF9F4] text-[#111111] h-full p-6 sm:p-8 overflow-y-auto border-l border-[#D8D2C7] shadow-xl flex flex-col justify-between">
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-white/[0.08] mb-6">
+          <div className="flex items-center justify-between pb-4 border-b border-[#D8D2C7] mb-6">
             <div className="flex items-center gap-2.5">
-              <History className="w-5 h-5 text-[#F5C518]" />
+              <History className="w-5 h-5 text-[#111111]" />
               <div>
-                <h2 id="history-drawer-title" className="text-lg font-bold font-serif tracking-wide text-[#F4EDD8]">
-                  Session History
+                <h2 id="history-drawer-title" className="text-base font-semibold uppercase tracking-wider text-[#111111]">
+                  Query Session Log
                 </h2>
-                <p className="text-[10px] font-mono tracking-wider text-[#F4EDD8]/50 uppercase">
-                  Your conversations with NOVARON
+                <p className="text-[11px] text-[#4A4741]">
+                  {history.length} recorded quer{history.length === 1 ? 'y' : 'ies'}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
               aria-label="Close History"
-              className="p-1.5 rounded-full hover:bg-white/[0.08] text-[#F4EDD8]/60 hover:text-[#F4EDD8] transition-colors"
+              className="p-1.5 rounded-md hover:bg-[#EEE9DF] text-[#4A4741] hover:text-[#111111] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Conversation List */}
+          {/* History List */}
           {history.length === 0 ? (
-            <div className="text-center py-20 px-4 text-[#F4EDD8]/50 font-mono text-xs space-y-2.5">
-              <History className="w-9 h-9 mx-auto opacity-30 text-[#F5C518] mb-2" />
-              <p className="font-semibold text-sm text-[#F4EDD8]/80">No conversations yet</p>
-              <p className="text-[11px] text-[#F4EDD8]/45 font-sans leading-relaxed max-w-xs mx-auto">
-                Your recent voice sessions will appear here.
+            <div className="py-16 text-center text-[#4A4741] space-y-2">
+              <History className="w-8 h-8 mx-auto opacity-30 text-[#111111]" />
+              <p className="text-sm font-editorial">No inquiries in current session.</p>
+              <p className="text-xs text-[#4A4741]">
+                Voice queries and keyboard submissions will be logged here.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
               {history.map((item) => {
                 const isRefused = item.data.refused;
-
                 return (
-                  <div
+                  <button
                     key={item.id}
                     onClick={() => {
                       onSelectHistory(item);
                       onClose();
                     }}
-                    className="relative p-4 rounded-2xl bg-white/[0.03] border border-white/[0.07] hover:border-white/[0.15] hover:bg-white/[0.055] cursor-pointer transition-all duration-150 group shadow-sm overflow-hidden"
+                    className="w-full text-left p-3.5 rounded-md bg-[#F7F3EA] border border-[#D8D2C7] hover:border-[#111111] transition-all group"
                   >
-                    {/* Subtle Pink Left Hover Accent */}
-                    <span
-                      className="absolute left-0 top-3 bottom-3 w-[2.5px] bg-[#EE2A6D] rounded-r opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                      aria-hidden="true"
-                    />
-
-                    {/* Question Title (Primary, max 2 lines) */}
-                    <h4 className="text-sm font-medium text-[#F4EDD8] group-hover:text-[#F5C518] transition-colors line-clamp-2 leading-snug mb-2">
-                      "{item.query}"
-                    </h4>
-
-                    {/* Bottom Secondary Metadata Row */}
-                    <div className="flex items-center justify-between text-[11px] font-mono text-[#F4EDD8]/50 pt-1 border-t border-white/[0.04]">
-                      <span>{formatTimestamp(item.timestamp)}</span>
-                      <div className="flex items-center gap-2">
-                        {isRefused ? (
-                          <span className="flex items-center gap-1 text-[#EE2A6D] text-[10px] font-medium">
-                            <ShieldAlert className="w-3 h-3" />
-                            <span>Refusal</span>
-                          </span>
-                        ) : (
-                          <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-medium">
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Grounded</span>
-                          </span>
-                        )}
-                        <ArrowRight className="w-3 h-3 text-[#F5C518]/60 group-hover:text-[#F5C518] group-hover:translate-x-0.5 transition-transform" />
-                      </div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] font-mono text-[#4A4741]">
+                        {formatTimestamp(item.timestamp)}
+                      </span>
+                      {isRefused ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-800 bg-[#EEE9DF] px-2 py-0.5 rounded border border-[#D8D2C7]">
+                          <ShieldAlert className="w-3 h-3" />
+                          Refused
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-[#EEE9DF] px-2 py-0.5 rounded border border-[#D8D2C7]">
+                          <CheckCircle2 className="w-3 h-3" />
+                          Grounded
+                        </span>
+                      )}
                     </div>
-                  </div>
+
+                    <p className="font-editorial text-sm font-medium text-[#111111] line-clamp-1 group-hover:underline">
+                      "{item.query}"
+                    </p>
+
+                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D8D2C7]/60 text-[10px] font-mono text-[#4A4741]">
+                      <span>
+                        {item.data.sources?.length || 0} cited passage{item.data.sources?.length === 1 ? '' : 's'}
+                      </span>
+                      <span className="flex items-center gap-1 group-hover:text-[#111111]">
+                        <span>View</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </button>
                 );
               })}
             </div>
           )}
         </div>
 
-        {/* Quiet Clear History Footer */}
+        {/* Footer Actions */}
         {history.length > 0 && (
-          <div className="pt-4 border-t border-white/[0.06] flex justify-between items-center mt-6">
+          <div className="pt-4 border-t border-[#D8D2C7] flex items-center justify-between">
             <button
               onClick={onClearHistory}
-              className="flex items-center gap-1.5 text-xs font-mono text-[#EE2A6D]/80 hover:text-white px-3 py-1.5 rounded-full hover:bg-rose-950/70 border border-[#EE2A6D]/25 transition-colors"
+              className="flex items-center gap-1.5 text-xs text-[#4A4741] hover:text-red-700 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Clear History</span>
+              <span>Clear Log</span>
             </button>
-            <span className="text-[11px] font-mono text-[#F4EDD8]/40">
-              {history.length} {history.length === 1 ? 'item' : 'items'} saved
+            <span className="text-[11px] font-mono text-[#4A4741]">
+              Session Storage
             </span>
           </div>
         )}

@@ -11,7 +11,7 @@ REFUSAL = "I don't have enough information in the indexed knowledge base to answ
 
 class ExtractiveGroundedGenerator(GroundedGenerator):
     """Safe local baseline. A hosted LLM adapter can replace this implementation later."""
-    def answer(self, query: str, evidence: list[SearchHit]) -> str:
+    def answer(self, query: str, evidence: list[SearchHit], language: str | None = None) -> str:
         return evidence[0].chunk.text if evidence else REFUSAL
 
 
@@ -28,7 +28,7 @@ class RAGPipeline:
         self.retriever, self.reranker = retriever, reranker
         self.generator, self.minimum_score = generator, minimum_score
 
-    def run(self, query: str, retrieval_limit: int = 10, answer_limit: int = 5) -> PipelineResult:
+    def run(self, query: str, retrieval_limit: int = 10, answer_limit: int = 5, language: str | None = None) -> PipelineResult:
         started = time.perf_counter()
         if hasattr(self.retriever, "search_with_profile"):
             candidates, retrieval_profile = self.retriever.search_with_profile(query, retrieval_limit)
@@ -39,7 +39,13 @@ class RAGPipeline:
         evidence = self.reranker.rerank(query, candidates, answer_limit) if self.reranker else candidates[:answer_limit]
         reranked_at = time.perf_counter()
         supported = bool(evidence) and evidence[0].score >= self.minimum_score
-        generated = self.generator.answer(query, evidence) if supported else REFUSAL
+        if supported:
+            try:
+                generated = self.generator.answer(query, evidence, language=language)
+            except TypeError:
+                generated = self.generator.answer(query, evidence)
+        else:
+            generated = REFUSAL
         if isinstance(generated, GeneratedAnswer):
             supported = supported and not generated.refused
             answer = generated.answer if supported else REFUSAL

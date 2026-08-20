@@ -22,7 +22,7 @@ export async function queryText({
   query,
   top_k = 5,
   chunking_strategy = 'sentence',
-  retrieval_mode = 'dense',
+  retrieval_mode = 'hybrid_rerank',
   previous_query,
   apiBaseUrl = DEFAULT_API_BASE_URL,
 }: {
@@ -61,7 +61,7 @@ export async function queryVoice({
   language,
   top_k = 5,
   chunking_strategy = 'sentence',
-  retrieval_mode = 'dense',
+  retrieval_mode = 'hybrid_rerank',
   synthesize_audio = true,
   previous_query,
   apiBaseUrl = DEFAULT_API_BASE_URL,
