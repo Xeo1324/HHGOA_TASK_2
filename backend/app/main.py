@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -606,9 +607,19 @@ async def voice_query(
     if synthesize_audio and answer:
         tts_start = time.perf_counter()
         try:
-            tts_audio = await tts_adapter.synthesize(answer, language=language or route.language)
-            tts_elapsed = round((time.perf_counter() - tts_start) * 1000, 3)
-            latency_ms["tts"] = tts_elapsed
+            if hasattr(tts_adapter, "synthesize_with_telemetry"):
+                tts_audio, tts_telem = await tts_adapter.synthesize_with_telemetry(
+                    answer, language=language or route.language
+                )
+                tts_elapsed = tts_telem.get("tts_total_ms", round((time.perf_counter() - tts_start) * 1000, 3))
+                latency_ms["tts"] = tts_elapsed
+                latency_ms["tts_first_audio_ms"] = tts_telem.get("tts_first_audio_ms")
+                latency_ms["tts_cache_hit"] = tts_telem.get("tts_cache_hit", False)
+                latency_ms["time_to_first_audio_ms"] = tts_telem.get("time_to_first_audio_ms")
+            else:
+                tts_audio = await tts_adapter.synthesize(answer, language=language or route.language)
+                tts_elapsed = round((time.perf_counter() - tts_start) * 1000, 3)
+                latency_ms["tts"] = tts_elapsed
             latency_ms["total"] = round(latency_ms["total"] + tts_elapsed, 3)
             audio_b64 = base64.b64encode(tts_audio).decode("ascii")
         except Exception as exc:
@@ -643,3 +654,21 @@ async def synthesize_speech(request: TTSRequest) -> Response:
         raise HTTPException(status_code=status, detail=msg) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Internal error during speech synthesis.") from exc
+
+
+@app.post("/v1/tts/stream")
+async def stream_synthesize_speech(request: TTSRequest) -> StreamingResponse:
+    _require_ready()
+    if not request.text or not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text to synthesize cannot be empty.")
+    if not hasattr(tts_adapter, "stream_chunks"):
+        raise HTTPException(status_code=501, detail="Configured TTS adapter does not support streaming.")
+    try:
+        return StreamingResponse(
+            tts_adapter.stream_chunks(request.text, language=request.language),
+            media_type="audio/mpeg",
+        )
+    except TextToSpeechError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Streaming error: {exc}") from exc
