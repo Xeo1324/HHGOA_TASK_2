@@ -44,13 +44,16 @@ class HashingDenseRetriever:
     def __init__(self, chunks: Iterable[Chunk], embedder: Embedder) -> None:
         self.chunks = list(chunks)
         self.embedder = embedder
-        raw_vectors = [embedder.embed(chunk.text) for chunk in self.chunks]
-        self._raw_vectors = raw_vectors
         try:
             import numpy as np
-            self._np_vectors = np.array(raw_vectors, dtype=np.float32) if raw_vectors else None
+            dimensions = getattr(embedder, "dimensions", 512)
+            n_chunks = len(self.chunks)
+            self._np_vectors = np.empty((n_chunks, dimensions), dtype=np.float32)
+            for idx, chunk in enumerate(self.chunks):
+                self._np_vectors[idx] = embedder.embed(chunk.text)
         except ImportError:
             self._np_vectors = None
+            self._fallback_vectors = [embedder.embed(chunk.text) for chunk in self.chunks]
 
         # Pre-build inverted term map in O(N) at init, avoiding per-query full-corpus re-tokenization
         term_map: dict[str, list[int]] = defaultdict(list)
@@ -61,7 +64,9 @@ class HashingDenseRetriever:
 
     @property
     def vectors(self) -> list[list[float]]:
-        return self._raw_vectors
+        if self._np_vectors is not None:
+            return self._np_vectors.tolist()
+        return getattr(self, "_fallback_vectors", [])
 
     def search(self, query: str, limit: int) -> list[SearchHit]:
         hits, _ = self.search_with_profile(query, limit)
@@ -94,7 +99,8 @@ class HashingDenseRetriever:
                 top_indices = top_indices[np.argsort(-scores[top_indices])]
             hits = [SearchHit(chunk=self.chunks[int(idx)], score=float(scores[int(idx)]), retriever="dense") for idx in top_indices]
         else:
-            scored = [(sum(a * b for a, b in zip(query_vector, vector)), chunk) for chunk, vector in zip(self.chunks, self._raw_vectors)]
+            fallback = getattr(self, "_fallback_vectors", [])
+            scored = [(sum(a * b for a, b in zip(query_vector, vector)), chunk) for chunk, vector in zip(self.chunks, fallback)]
             hits = [SearchHit(chunk=chunk, score=score, retriever="dense") for score, chunk in sorted(scored, reverse=True, key=lambda pair: pair[0])[:limit]]
 
         return hits, {"embedding": (embedded_at - started) * 1000, "dense_search": (time.perf_counter() - embedded_at) * 1000}
@@ -128,24 +134,31 @@ class BM25Retriever:
         self.k1, self.b = k1, b
         total_docs = len(self.chunks)
 
-        self.tokens = [tokenize(chunk.text) for chunk in self.chunks]
-        self.lengths = [len(tokens) for tokens in self.tokens]
-        self.average_length = sum(self.lengths) / max(total_docs, 1)
-
-        avg_len = max(self.average_length, 1.0)
-        self.doc_len_norm = [
-            self.k1 * (1.0 - self.b + self.b * (l / avg_len))
-            for l in self.lengths
-        ]
-
+        lengths: list[int] = []
         self.document_frequency: dict[str, int] = defaultdict(int)
         postings_builder: dict[str, list[tuple[int, int]]] = defaultdict(list)
 
-        for doc_idx, terms in enumerate(self.tokens):
+        for doc_idx, chunk in enumerate(self.chunks):
+            terms = tokenize(chunk.text)
+            lengths.append(len(terms))
             term_counts = Counter(terms)
             for term, count in term_counts.items():
                 postings_builder[term].append((doc_idx, count))
                 self.document_frequency[term] += 1
+
+        self.average_length = sum(lengths) / max(total_docs, 1)
+        avg_len = max(self.average_length, 1.0)
+        try:
+            import numpy as np
+            self.doc_len_norm = np.array(
+                [self.k1 * (1.0 - self.b + self.b * (l / avg_len)) for l in lengths],
+                dtype=np.float32,
+            )
+        except ImportError:
+            self.doc_len_norm = [
+                self.k1 * (1.0 - self.b + self.b * (l / avg_len))
+                for l in lengths
+            ]
 
         self.postings: dict[str, list[tuple[int, int]]] = dict(postings_builder)
 

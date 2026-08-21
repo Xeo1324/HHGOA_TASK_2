@@ -219,22 +219,58 @@ def build_pipeline(chunks: list, strategy: str = "sentence", mode: str = "dense"
     return RAGPipeline(retriever, reranker, _build_generator(), threshold)
 
 
-def build_pipelines() -> dict[str, dict[str, RAGPipeline]]:
-    passages = load_jsonl(DATA_PATH)
-    corpora = {
-        "fixed": fixed_chunks(passages),
-        "sentence": sentence_chunks(passages),
-        "hierarchical": hierarchical_chunks(passages),
-    }
-    result: dict[str, dict[str, RAGPipeline]] = {}
-    for name, chunks in corpora.items():
-        dense = _build_dense_retriever(chunks, name)
+_PIPELINES_CACHE: dict[str, dict[str, RAGPipeline]] = {}
+_CHUNKS_CACHE: dict[str, list] = {}
+_RETRIEVER_CACHE: dict[str, tuple[Any, BM25Retriever]] = {}
+
+
+def _get_or_build_strategy_pipelines(strategy: str) -> dict[str, RAGPipeline]:
+    if strategy in _PIPELINES_CACHE:
+        return _PIPELINES_CACHE[strategy]
+
+    if strategy not in _CHUNKS_CACHE:
+        passages = load_jsonl(DATA_PATH)
+        if strategy == "fixed":
+            chunks = fixed_chunks(passages)
+        elif strategy == "hierarchical":
+            chunks = hierarchical_chunks(passages)
+        else:
+            chunks = sentence_chunks(passages)
+        _CHUNKS_CACHE[strategy] = chunks
+        del passages
+
+    chunks = _CHUNKS_CACHE[strategy]
+    if strategy not in _RETRIEVER_CACHE:
+        dense = _build_dense_retriever(chunks, strategy)
         bm25 = BM25Retriever(chunks)
-        result[name] = {
-            mode: build_pipeline(chunks, name, mode, dense=dense, bm25=bm25)
-            for mode in ("dense", "bm25", "hybrid", "hybrid_rerank")
-        }
-    return result
+        _RETRIEVER_CACHE[strategy] = (dense, bm25)
+    else:
+        dense, bm25 = _RETRIEVER_CACHE[strategy]
+
+    strat_pipelines = {
+        mode: build_pipeline(chunks, strategy, mode, dense=dense, bm25=bm25)
+        for mode in ("dense", "bm25", "hybrid", "hybrid_rerank")
+    }
+    _PIPELINES_CACHE[strategy] = strat_pipelines
+    return strat_pipelines
+
+
+class LazyPipelineDict(dict):
+    """Dictionary that automatically builds chunking strategies on demand while exposing keys."""
+    def __getitem__(self, strategy: str) -> dict[str, RAGPipeline]:
+        return _get_or_build_strategy_pipelines(strategy)
+
+    def __contains__(self, strategy: object) -> bool:
+        return strategy in ("sentence", "fixed", "hierarchical")
+
+    def keys(self):
+        return ["sentence", "fixed", "hierarchical"]
+
+
+def build_pipelines() -> dict[str, dict[str, RAGPipeline]]:
+    # Eagerly initialize only the primary 'sentence' strategy to maintain steady-state RAM < 400MB
+    _get_or_build_strategy_pipelines("sentence")
+    return LazyPipelineDict({"sentence": _PIPELINES_CACHE["sentence"]})
 
 
 from contextlib import asynccontextmanager
@@ -254,13 +290,39 @@ _startup_error: str | None = None
 def _get_memory_mb() -> float | None:
     """Read current process memory RSS in MB (cross-platform)."""
     try:
+        import psutil
+        return psutil.Process().memory_info().rss / (1024.0 * 1024.0)
+    except Exception:
+        pass
+    try:
         import resource
         return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
     except Exception:
         pass
     try:
-        import psutil
-        return psutil.Process().memory_info().rss / (1024.0 * 1024.0)
+        import ctypes
+        from ctypes import wintypes
+        class PROCESS_MEMORY_COUNTERS(ctypes.Structure):
+            _fields_ = [
+                ('cb', wintypes.DWORD),
+                ('PageFaultCount', wintypes.DWORD),
+                ('PeakWorkingSetSize', ctypes.c_size_t),
+                ('WorkingSetSize', ctypes.c_size_t),
+                ('QuotaPeakPagedPoolUsage', ctypes.c_size_t),
+                ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t),
+                ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                ('PagefileUsage', ctypes.c_size_t),
+                ('PeakPagefileUsage', ctypes.c_size_t),
+            ]
+        k32 = ctypes.windll.kernel32
+        k32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESS_MEMORY_COUNTERS), wintypes.DWORD]
+        k32.K32GetProcessMemoryInfo.restype = wintypes.BOOL
+        pmc = PROCESS_MEMORY_COUNTERS()
+        pmc.cb = ctypes.sizeof(PROCESS_MEMORY_COUNTERS)
+        res = k32.K32GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(pmc), pmc.cb)
+        if res and pmc.WorkingSetSize > 0:
+            return pmc.WorkingSetSize / (1024.0 * 1024.0)
     except Exception:
         pass
     return None
@@ -385,7 +447,7 @@ app = FastAPI(title="NOVARON Voice RAG", version="0.5.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

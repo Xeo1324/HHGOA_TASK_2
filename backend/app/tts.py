@@ -68,9 +68,11 @@ _CITATION_REGEX = re.compile(r"\[[a-zA-Z0-9_\-:]+\]")
 class TTSAudioCache:
     """Thread-safe, bounded LRU cache for synthesized audio payloads."""
 
-    def __init__(self, max_entries: int = 256) -> None:
+    def __init__(self, max_entries: int = 256, max_bytes: int = 16 * 1024 * 1024) -> None:
         self.max_entries = max_entries
+        self.max_bytes = max_bytes
         self._cache: collections.OrderedDict[str, bytes] = collections.OrderedDict()
+        self._current_bytes = 0
         self._lock = threading.Lock()
         self.hits = 0
         self.misses = 0
@@ -92,16 +94,21 @@ class TTSAudioCache:
     def put(self, key: str, data: bytes) -> None:
         with self._lock:
             if key in self._cache:
+                self._current_bytes -= len(self._cache[key])
                 self._cache.move_to_end(key)
                 self._cache[key] = data
+                self._current_bytes += len(data)
             else:
-                if len(self._cache) >= self.max_entries:
-                    self._cache.popitem(last=False)
+                while (len(self._cache) >= self.max_entries or (self._current_bytes + len(data) > self.max_bytes and self._cache)):
+                    _, old_data = self._cache.popitem(last=False)
+                    self._current_bytes -= len(old_data)
                 self._cache[key] = data
+                self._current_bytes += len(data)
 
     def clear(self) -> None:
         with self._lock:
             self._cache.clear()
+            self._current_bytes = 0
             self.hits = 0
             self.misses = 0
 
@@ -109,7 +116,9 @@ class TTSAudioCache:
         with self._lock:
             return {
                 "size": len(self._cache),
+                "bytes": self._current_bytes,
                 "max_entries": self.max_entries,
+                "max_bytes": self.max_bytes,
                 "hits": self.hits,
                 "misses": self.misses,
             }
