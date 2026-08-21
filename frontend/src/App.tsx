@@ -10,6 +10,7 @@ import { HistoryDrawer } from './components/HistoryDrawer';
 import { SourcesDrawer } from './components/SourcesDrawer';
 import { TextQueryModal } from './components/TextQueryModal';
 import { ShareModal } from './components/ShareModal';
+import { LiveTranscription } from './components/LiveTranscription';
 import { Mic, History as HistoryIcon, Database, X } from 'lucide-react';
 import { checkHealth, queryText, queryVoice, synthesizeSpeech, DEFAULT_API_BASE_URL } from './services/api';
 import { AppState, QueryResponse, VoiceQueryResponse, Settings } from './types';
@@ -60,9 +61,15 @@ export const App: React.FC = () => {
       retrieval_mode: 'hybrid_rerank',
       top_k: 5,
       synthesize_audio: true,
+      live_transcription: true,
       apiBaseUrl: DEFAULT_API_BASE_URL,
     };
   });
+
+  // Live Streaming Speech Recognition State
+  const [finalTranscript, setFinalTranscript] = useState<string>('');
+  const [interimTranscript, setInterimTranscript] = useState<string>('');
+  const recognitionRef = useRef<any>(null);
 
   // Audio Waveform & Playback
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
@@ -189,6 +196,66 @@ export const App: React.FC = () => {
       }
       setErrorMessage(null);
       audioChunksRef.current = [];
+      setFinalTranscript('');
+      setInterimTranscript('');
+
+      // Initialize Browser Real-Time Speech Recognition (Web Speech API)
+      if (settings.live_transcription !== false) {
+        const SpeechRecognitionClass =
+          (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognitionClass) {
+          try {
+            const recognition = new SpeechRecognitionClass();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            const langMap: Record<string, string> = {
+              en: 'en-IN',
+              hi: 'hi-IN',
+              te: 'te-IN',
+              ta: 'ta-IN',
+              bn: 'bn-IN',
+              mr: 'mr-IN',
+              gu: 'gu-IN',
+              kn: 'kn-IN',
+              ml: 'ml-IN',
+              pa: 'pa-IN',
+              ur: 'ur-IN',
+            };
+            recognition.lang =
+              langMap[settings.language] ||
+              (settings.language === 'en' ? 'en-US' : `${settings.language}-IN`);
+
+            recognition.onresult = (event: any) => {
+              let finalStr = '';
+              let interimStr = '';
+              for (let i = 0; i < event.results.length; ++i) {
+                const piece = event.results[i][0]?.transcript || '';
+                if (event.results[i].isFinal) {
+                  finalStr += piece + ' ';
+                } else {
+                  interimStr += piece;
+                }
+              }
+              if (finalStr.trim()) setFinalTranscript(finalStr.trim());
+              setInterimTranscript(interimStr.trim());
+            };
+
+            recognition.onerror = (event: any) => {
+              console.warn('Live SpeechRecognition event warning:', event.error);
+            };
+
+            recognition.onend = () => {
+              // Recognition loop completed
+            };
+
+            recognition.start();
+            recognitionRef.current = recognition;
+          } catch (e) {
+            console.warn('SpeechRecognition initialization error:', e);
+          }
+        }
+      }
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -310,6 +377,12 @@ export const App: React.FC = () => {
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
@@ -350,6 +423,11 @@ export const App: React.FC = () => {
       });
 
       timers.forEach((t) => clearTimeout(t));
+
+      if (res.query) {
+        setFinalTranscript(res.query);
+        setInterimTranscript('');
+      }
 
       setResponse(res);
       lastQueryRef.current = res.query || res.normalized_query || null;
@@ -468,10 +546,18 @@ export const App: React.FC = () => {
     if (audioElementRef.current) {
       audioElementRef.current.pause();
     }
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {}
+      recognitionRef.current = null;
+    }
     setAppState('IDLE');
     setResponse(null);
     setErrorMessage(null);
     setIsPlayingAudio(false);
+    setFinalTranscript('');
+    setInterimTranscript('');
   };
 
   const handleTabSelect = (tab: 'ask' | 'history' | 'sources' | 'settings') => {
@@ -607,6 +693,16 @@ export const App: React.FC = () => {
             compact={hasAnswer}
             onClick={appState === 'LISTENING' ? stopRecording : startRecording}
           />
+
+          {/* Real-Time Live Streaming Speech Transcription HUD */}
+          {settings.live_transcription !== false && (
+            <LiveTranscription
+              state={appState}
+              finalTranscript={finalTranscript}
+              interimTranscript={interimTranscript}
+              language={settings.language}
+            />
+          )}
 
           {/* Compact Inline Error Notice (Non-blocking) */}
           {appState === 'ERROR' && errorMessage && (

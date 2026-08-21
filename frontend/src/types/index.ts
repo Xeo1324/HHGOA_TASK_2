@@ -66,5 +66,8 @@ export interface Settings {
   retrieval_mode: 'dense' | 'bm25' | 'hybrid' | 'hybrid_rerank';
   top_k: number;
   synthesize_audio: boolean;
+  live_transcription?: boolean;
   apiBaseUrl: string;
 }
+
+
