@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { X, Sliders, Volume2, Globe, Database, Cpu, Server } from 'lucide-react';
+import { X, Sliders, Volume2, Globe, Database, Cpu, Server, Mic } from 'lucide-react';
 import { Settings } from '../types';
 
 interface SettingsDrawerProps {
@@ -155,6 +155,23 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({
                 type="checkbox"
                 checked={settings.synthesize_audio}
                 onChange={(e) => onUpdateSettings({ synthesize_audio: e.target.checked })}
+                className="w-4 h-4 accent-[#111111] rounded"
+              />
+            </div>
+
+            {/* Live Transcription Toggle */}
+            <div className="flex items-center justify-between p-3.5 rounded-md bg-[#F7F3EA] border border-[#D8D2C7]">
+              <div className="flex items-center gap-2">
+                <Mic className="w-4 h-4 text-[#111111]" />
+                <div>
+                  <div className="text-xs font-semibold text-[#111111]">Live Transcription</div>
+                  <div className="text-[10px] text-[#4A4741]">Stream real-time words while speaking</div>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.live_transcription !== false}
+                onChange={(e) => onUpdateSettings({ live_transcription: e.target.checked })}
                 className="w-4 h-4 accent-[#111111] rounded"
               />
             </div>
