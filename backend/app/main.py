@@ -214,7 +214,7 @@ def build_pipeline(chunks: list, strategy: str = "sentence", mode: str = "dense"
         threshold = float(os.getenv("MIN_BM25_SCORE", "0.5"))
     else:
         threshold = float(os.getenv("MIN_RELEVANCE_SCORE", "0.08")) if reranker else float(
-            os.getenv("MIN_UNRERANKED_RELEVANCE_SCORE", "0.08")
+            os.getenv("MIN_UNRERANKED_RELEVANCE_SCORE", "0.65")
         )
     return RAGPipeline(retriever, reranker, _build_generator(), threshold)
 
