@@ -10,13 +10,6 @@ from typing import Any, Sequence
 
 from app.domain import EmbeddingProvider
 
-try:
-    import torch
-    _HAS_TORCH = True
-except ImportError:
-    _HAS_TORCH = False
-
-
 class EmbeddingProviderError(RuntimeError):
     """Raised when an embedding provider cannot produce a valid vector."""
 
@@ -88,7 +81,11 @@ class SentenceTransformerEmbeddingProvider(EmbeddingProvider):
         if prefix:
             prepared = [prefix + text for text in prepared]
         try:
-            ctx = torch.inference_mode() if _HAS_TORCH else nullcontext()
+            try:
+                import torch
+                ctx = torch.inference_mode()
+            except ImportError:
+                ctx = nullcontext()
             with ctx:
                 vectors = model.encode(
                     prepared,

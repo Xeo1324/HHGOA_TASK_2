@@ -28,7 +28,6 @@ except ImportError:
     pass
 
 from app.domain import SpeechToText, TextToSpeech
-from app.embeddings import SentenceTransformerEmbeddingProvider
 from app.generation import GeminiGroundedLLM, OpenAIGroundedLLM
 from app.ingestion import fixed_chunks, hierarchical_chunks, load_jsonl, sentence_chunks
 from app.pipeline import ExtractiveGroundedGenerator, RAGPipeline
@@ -106,12 +105,13 @@ class TTSRequest(BaseModel):
 
 
 _STORE_CACHE: dict[str, FaissVectorStore] = {}
-_EMBEDDER_INSTANCE: SentenceTransformerEmbeddingProvider | None = None
+_EMBEDDER_INSTANCE = None
 
 
-def _get_shared_embedder() -> SentenceTransformerEmbeddingProvider:
+def _get_shared_embedder():
     global _EMBEDDER_INSTANCE
     if _EMBEDDER_INSTANCE is None:
+        from app.embeddings import SentenceTransformerEmbeddingProvider
         _EMBEDDER_INSTANCE = SentenceTransformerEmbeddingProvider()
     return _EMBEDDER_INSTANCE
 
@@ -383,13 +383,7 @@ def _initialize_all() -> None:
         tts_adapter = _build_tts()
         _log_startup_step("Step 3/5: TTS adapter initialized", t_step)
 
-        # Step 4: Shared Embedder initialization
-        t_step = _log_startup_step("Step 4/5: Instantiating shared embedding provider")
-        embedder = _get_shared_embedder()
-        _log_startup_step(f"Step 4/5: Shared embedder instantiated (model='{embedder.model_name}')", t_step)
-
-        # Step 5: Embedder warmup (run if FAISS index is active or explicitly enabled)
-        warmup_setting = os.getenv("WARMUP_EMBEDDINGS", "auto").lower()
+        # Step 4: Shared Embedder initialization (only if FAISS index is active)
         faiss_active = False
         if pipelines:
             for strat_modes in pipelines.values():
@@ -402,12 +396,22 @@ def _initialize_all() -> None:
                         faiss_active = True
                         break
 
-        should_warmup = (
+        embedder = None
+        if faiss_active:
+            t_step = _log_startup_step("Step 4/5: Instantiating shared embedding provider")
+            embedder = _get_shared_embedder()
+            _log_startup_step(f"Step 4/5: Shared embedder instantiated (model='{embedder.model_name}')", t_step)
+        else:
+            _log_startup_step("Step 4/5: Shared embedder skipped (hashing dense retriever active)")
+
+        # Step 5: Embedder warmup (run if FAISS index is active or explicitly enabled)
+        warmup_setting = os.getenv("WARMUP_EMBEDDINGS", "auto").lower()
+        should_warmup = faiss_active and (
             warmup_setting in ("1", "true", "yes")
-            or (warmup_setting == "auto" and faiss_active)
+            or warmup_setting == "auto"
         )
 
-        if should_warmup:
+        if should_warmup and embedder is not None:
             t_step = _log_startup_step(f"Step 5/5: Warming up embedder model '{embedder.model_name}'")
             embedder.warmup()
             _log_startup_step("Step 5/5: Embedder warmup finished", t_step)
