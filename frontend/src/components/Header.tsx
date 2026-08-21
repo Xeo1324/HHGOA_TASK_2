@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#D8D2C7] bg-[#F7F3EA] text-[11px] font-medium text-[#4A4741]">
           <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-600' : 'bg-amber-600'}`} />
-          <span>{isOnline ? 'System Ready' : 'Connecting'}</span>
+          <span>{isOnline ? 'Connected' : 'Connecting'}</span>
         </div>
 
         {/* Language Segmented Control */}
